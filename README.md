@@ -2,7 +2,7 @@
 
 > *"Because spending $50k on a PLC simulator wasn't in the budget, and neither was your sanity."*
 
-## What Fresh Hell Is This?
+## What Is This?
 
 Welcome to the **Python OPC UA Server** – your new best friend in the dystopian nightmare of industrial automation.  This little beauty generates fake (but convincing!) sensor data and serves it up via OPC UA, because apparently in 2026 we're still using protocols from the early 2000s.  
 
@@ -50,3 +50,28 @@ Define your tags in `tags_config.json` and watch them spring to life like indust
     "max":  25.0
   }
 }
+
+**Supported Tag Types:**
+
+- `float` – For when you need decimals (temperatures, pressures, your will to live)
+- `int` – Whole numbers only (counters, error codes, days until vacation)
+- `string` – Text data (status messages, error descriptions, existential dread)
+- `bool` – True/false (is it running? is it broken? do we care?)
+
+**Simulation Types:**
+
+- `random` – Because chaos is the natural state of industrial systems
+- `increment` – For counters that go up (unlike your career prospects)
+- `none` – Static values for when you just can't even
+
+### 🔧 Easy Configuration
+Just edit a JSON file. No recompiling. No arcane XML. No sacrificing a goat under a full moon.
+
+### 🐧 Runs in LXC Containers
+Because Docker costs money and your client already spent the budget on a motivational speaker.
+
+### 🔄 Auto-Restart on Failure
+Built-in systemd service that restarts when things inevitably go wrong (because they will).
+
+### 📊 Real-time Updates
+Tag values update every 2 seconds by default. Configurable, because some of us like to watch the world burn slowly.
