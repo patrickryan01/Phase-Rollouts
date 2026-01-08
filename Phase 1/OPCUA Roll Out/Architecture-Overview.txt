@@ -1,0 +1,1 @@
+Python App (Ubuntu) → OPC UA Server → Ignition Edge → Gateway Network → Main Ignition Gateway
