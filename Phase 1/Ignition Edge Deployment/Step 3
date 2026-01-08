@@ -1,0 +1,165 @@
+#!/bin/bash
+#
+# Create OPC UA Server container that can communicate with Ignition Edge
+#
+
+set -e
+
+# Configuration
+CONTAINER_NAME="${CONTAINER_NAME:-opcua-server}"
+UBUNTU_VERSION="${UBUNTU_VERSION:-22.04}"
+REPO_DIR="${REPO_DIR: -.}"
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+echo "========================================="
+echo "  OPC UA Server LXC Container Setup"
+echo "========================================="
+echo ""
+
+# Check if container already exists
+if lxc info "$CONTAINER_NAME" &> /dev/null; then
+    echo -e "${YELLOW}Container $CONTAINER_NAME already exists${NC}"
+    read -p "Delete and recreate? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Stopping and deleting container..."
+        lxc stop "$CONTAINER_NAME" --force || true
+        lxc delete "$CONTAINER_NAME"
+    else
+        echo "Using existing container"
+        exit 0
+    fi
+fi
+
+# Launch Ubuntu container
+echo -e "${GREEN}Creating LXC container: $CONTAINER_NAME${NC}"
+lxc launch ubuntu:$UBUNTU_VERSION "$CONTAINER_NAME"
+
+# Configure container resources
+echo "Configuring container resources..."
+lxc config set "$CONTAINER_NAME" limits.cpu 2
+lxc config set "$CONTAINER_NAME" limits.memory 1GB
+
+# Wait for container to be ready
+echo "Waiting for container to start..."
+sleep 10
+
+# Wait for network
+echo "Waiting for network..."
+for i in {1..30}; do
+    if lxc exec "$CONTAINER_NAME" -- ping -c 1 8.8.8.8 &> /dev/null; then
+        echo -e "${GREEN}Network is ready${NC}"
+        break
+    fi
+    echo "Waiting for network... ($i/30)"
+    sleep 2
+done
+
+# Update container
+echo "Updating container..."
+lxc exec "$CONTAINER_NAME" -- bash << 'EOF'
+apt update
+DEBIAN_FRONTEND=noninteractive apt upgrade -y
+EOF
+
+# Install dependencies
+echo "Installing dependencies..."
+lxc exec "$CONTAINER_NAME" -- bash << 'EOF'
+DEBIAN_FRONTEND=noninteractive apt install -y \
+    python3 \
+    python3-pip \
+    net-tools \
+    iputils-ping \
+    nano
+
+# Install Python OPC UA library
+pip3 install opcua==0.98.13
+EOF
+
+# Create installation directory
+echo "Creating application directory..."
+lxc exec "$CONTAINER_NAME" -- mkdir -p /opt/opcua-server
+
+# Copy application files
+echo "Copying OPC UA Server files..."
+if [ -f "$REPO_DIR/opcua_server.py" ]; then
+    lxc file push "$REPO_DIR/opcua_server.py" "$CONTAINER_NAME/opt/opcua-server/"
+    lxc file push "$REPO_DIR/tags_config.json" "$CONTAINER_NAME/opt/opcua-server/"
+    lxc file push "$REPO_DIR/requirements.txt" "$CONTAINER_NAME/opt/opcua-server/"
+else
+    echo -e "${RED}Error: OPC UA server files not found in $REPO_DIR${NC}"
+    exit 1
+fi
+
+# Make executable
+lxc exec "$CONTAINER_NAME" -- chmod +x /opt/opcua-server/opcua_server.py
+
+# Create systemd service
+echo "Creating systemd service..."
+lxc exec "$CONTAINER_NAME" -- bash << 'EOF'
+cat > /etc/systemd/system/opcua-server.service << 'SERVICE_EOF'
+[Unit]
+Description=OPC UA Server for Ignition Edge
+Documentation=https://github.com/yourusername/opcua-edge-server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/opcua-server
+ExecStart=/usr/bin/python3 /opt/opcua-server/opcua_server.py
+Restart=always
+RestartSec=10
+
+# Environment
+Environment="UPDATE_INTERVAL=2"
+Environment="OPC_ENDPOINT=opc.tcp://0.0.0.0:4840/freeopcua/server/"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=opcua-server
+
+[Install]
+WantedBy=multi-user.target
+SERVICE_EOF
+
+systemctl daemon-reload
+systemctl enable opcua-server.service
+systemctl start opcua-server.service
+EOF
+
+# Configure port forwarding (optional - for external access)
+echo "Configuring port forwarding..."
+lxc config device add "$CONTAINER_NAME" opcua-port proxy \
+    listen=tcp: 0.0.0.0:4840 \
+    connect=tcp:127.0.0.1:4840 \
+    bind=host || echo "OPC UA port already configured"
+
+# Get container IP
+CONTAINER_IP=$(lxc list "$CONTAINER_NAME" -c 4 --format csv | cut -d' ' -f1)
+
+echo ""
+echo -e "${GREEN}=========================================${NC}"
+echo -e "${GREEN}  OPC UA Server Container Created!${NC}"
+echo -e "${GREEN}=========================================${NC}"
+echo ""
+echo "Container Name: $CONTAINER_NAME"
+echo "Container IP: $CONTAINER_IP"
+echo "Network: lxdbr0 (NAT)"
+echo ""
+echo "OPC UA Endpoints:"
+echo "  From Ignition Container: opc.tcp://$CONTAINER_IP:4840/freeopcua/server/"
+echo "  From Host:               opc.tcp://localhost:4840/freeopcua/server/"
+echo ""
+echo "Container Management:"
+echo "  Status:   lxc exec $CONTAINER_NAME -- systemctl status opcua-server"
+echo "  Logs:    lxc exec $CONTAINER_NAME -- journalctl -u opcua-server -f"
+echo "  Shell:   lxc exec $CONTAINER_NAME -- bash"
+echo ""
