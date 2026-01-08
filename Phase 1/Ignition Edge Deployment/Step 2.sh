@@ -8,7 +8,7 @@ set -e
 # Configuration
 CONTAINER_NAME="${CONTAINER_NAME:-ignition-edge}"
 UBUNTU_VERSION="${UBUNTU_VERSION:-22.04}"
-IGNITION_ZIP="${IGNITION_ZIP}"  # Path to downloaded Ignition zip file
+IGNITION_ZIP="${IGNITION_ZIP:-$HOME/Downloads/Ignition-Edge-linux-x86-64-8.3.2.zip}"
 
 # Colors
 GREEN='\033[0;32m'
