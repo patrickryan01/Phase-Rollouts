@@ -8,7 +8,7 @@ set -e
 # Configuration
 CONTAINER_NAME="${CONTAINER_NAME:-opcua-server}"
 UBUNTU_VERSION="${UBUNTU_VERSION:-22.04}"
-REPO_DIR="${REPO_DIR: -.}"
+REPO_DIR="${REPO_DIR:-/Downloads/opcua-edge-deployment/Small-Application}"
 
 # Colors
 GREEN='\033[0;32m'

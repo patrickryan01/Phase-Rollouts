@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 IGNITION_ZIP="${IGNITION_ZIP}"
-REPO_DIR="${REPO_DIR: -.}"
+REPO_DIR="${REPO_DIR:-/Downloads/opcua-edge-deployment/Small-Application}"
 
 # Colors
 GREEN='\033[0;32m'
