@@ -58,13 +58,13 @@ fi
 
 # Launch Ubuntu container
 echo -e "${GREEN}Creating LXC container:  $CONTAINER_NAME${NC}"
-lxc launch ubuntu: $UBUNTU_VERSION "$CONTAINER_NAME"
+lxc launch ubuntu:$UBUNTU_VERSION "$CONTAINER_NAME"
 
 # Configure container resources
 echo "Configuring container resources..."
 lxc config set "$CONTAINER_NAME" limits.cpu 4
 lxc config set "$CONTAINER_NAME" limits.memory 4GB
-lxc config set "$CONTAINER_NAME" limits.memory. swap false
+lxc config set "$CONTAINER_NAME" limits.memory.swap false
 
 # Wait for container to be ready
 echo "Waiting for container to start..."
@@ -119,11 +119,12 @@ IGNITION_ZIP_NAME=$(basename "$IGNITION_ZIP")
 echo "Extracting Ignition..."
 lxc exec "$CONTAINER_NAME" -- bash << EOF
 cd /tmp
-unzip -q "$IGNITION_ZIP_NAME"
-mv ignition/* /opt/ignition/
-rm -rf ignition "$IGNITION_ZIP_NAME"
-chmod +x /opt/ignition/ignition. sh
+unzip -q "$IGNITION_ZIP_NAME" -d /opt/ignition
+rm "$IGNITION_ZIP_NAME"
 EOF
+
+# Set execute permissions on all shell scripts
+lxc exec "$CONTAINER_NAME" -- bash -c 'chmod +x /opt/ignition/*.sh'
 
 # Create Ignition data directory
 echo "Setting up Ignition data directory..."
@@ -137,7 +138,7 @@ cat > /opt/ignition/data/ignition.conf << 'CONF_EOF'
 # Ignition Edge Configuration
 #
 wrapper.java.additional.1=-Dignition.edition=edge
-wrapper.java.additional. 2=-Xmx2048m
+wrapper.java.additional.2=-Xmx2048m
 wrapper.java.maxmemory=2048
 CONF_EOF
 EOF
@@ -145,7 +146,7 @@ EOF
 # Create systemd service
 echo "Creating systemd service..."
 lxc exec "$CONTAINER_NAME" -- bash << 'EOF'
-cat > /etc/systemd/system/ignition. service << 'SERVICE_EOF'
+cat > /etc/systemd/system/ignition.service << 'SERVICE_EOF'
 [Unit]
 Description=Ignition Edge Gateway
 Documentation=https://docs.inductiveautomation.com/
@@ -178,7 +179,7 @@ WantedBy=multi-user.target
 SERVICE_EOF
 
 systemctl daemon-reload
-systemctl enable ignition. service
+systemctl enable ignition.service
 EOF
 
 # Configure port forwarding
